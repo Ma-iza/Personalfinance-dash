@@ -13,6 +13,14 @@ def transform(df):
     df = df.copy()
     df.columns = [col.lower() for col in df.columns]
     df = df.dropna()
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.lower()
+        .str.replace(r"[^a-z0-9]+", "_", regex=True)
+        .str.replace(r"_+", "_", regex=True)
+        .str.strip("_")
+    )
     return df
 
 #function to load into a database
