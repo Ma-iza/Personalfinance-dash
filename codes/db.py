@@ -9,8 +9,9 @@ def extract():
     return df
 
 #function to clean the data
-def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
+def transform(df):
     df = df.copy()
+    df = df.dropna()
     df.columns = (
         df.columns
         .str.strip()
@@ -19,62 +20,6 @@ def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
         .str.replace(r"_+", "_", regex=True)
         .str.strip("_")
     )
-    return df
-
-def transform(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df = clean_column_names(df)
-    #Rename to better names
-    rename_map = {
-        "paymentmethod": "payment_method",
-        "accounttype": "account_type",
-        "deviceused": "device_used",
-        "merchanttype": "merchant_type",
-        "loyaltyprogram": "loyalty_program",
-        "timeofday": "time_of_day",
-        "month": "month_name",  #to avoid collision with numeric month field
-    }
-    df = df.rename(columns=rename_map)
-
-    #standardize string columns
-    text_cols = [
-        "category",
-        "payment_method",
-        "account_type",
-        "transaction_type",
-        "location",
-        "device_used",
-        "merchant_type",
-        "loyalty_program",
-        "weekday",
-        "month_name",
-        "time_of_day",
-    ]
-    for col in text_cols:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
-
-    # Date normalization
-    if "date" in df.columns:
-        df["date"] = pd.to_datetime(df["date"], errors="coerce")
-        # keeps original timestamps,but store a clean date string for SQLite
-        df["date"] = df["date"].dt.strftime("%Y-%m-%d")
-
-    #amount normalization
-    if "amount" in df.columns:
-        df["amount"] = (
-            df["amount"]
-            .astype(str)
-            .str.replace(",", "", regex=False)
-        )
-        df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
-
-    if "transaction_type" in df.columns:
-        df["transaction_type"] = df["transaction_type"].str.lower()
-        df["type"] = df["transaction_type"].map({"debit": "expense"}).fillna("expense")
-    #Droprows
-    df = df.dropna(subset=["date", "amount", "category"])
-    df = df.drop_duplicates()
     return df
 
 #function to load into a database
@@ -100,3 +45,8 @@ def drop_table(table_name, connection_string="sqlite:///finance.db"):
             print(f"Table '{table_name}' dropped successfully.")            
     except Exception as e:
         print(f"Error dropping table: {e}")
+
+if __name__ == "__main__":
+    df = extract()
+    clean_df = transform(df)
+    load(clean_df, "transactions")
